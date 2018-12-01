@@ -1,10 +1,16 @@
 from datetime import datetime, timedelta
 import time
 import requests
-from pyecharts import Geo
+import jieba
+import matplotlib.pyplot as plt
+from collections import Counter
+from pyecharts import Geo, Bar, WordCloud
+import wordcloud
+from wordcloud import STOPWORDS,WordCloud
 import json
 urls = 'http://m.maoyan.com/mmdb/comments/movie/1208282.json?_v_=yes&offset=15&startTime=2018-11-30%2010%3A12%3A15'
 file_name = 'comments.txt'
+
 
 def get_data(url):
     headers = {
@@ -26,7 +32,7 @@ def parse_data(html):
             comment = {
                 'nickName': item['nickName'],
                 'cityName': item['cityName'] if 'cityName' in item else '',
-                'content': item['content'].strip().replace('\n',''),
+                'content': item['content'].strip().replace('\n', ''),
                 'score': item['score'],
                 'startTime': item['startTime']
             }
@@ -103,13 +109,55 @@ def create_map(data):
         error_city = str(info).split(' ')[-1]
         del data[error_city]
         create_map(data)
-    data_top20 = 
+    data_top10 = Counter(data).most_common(10)
+    print(data_top10)
+    bar = Bar('无名之辈观众来源排行TOP10', '数据来源：猫眼', title_pos='center')
+    attr, value = bar.cast(data_top10)
+    bar.add('', attr, value, is_visualmap=True, visual_range=[0, 3500], visual_text_color='#fff', is_more_utils=True, \
+            is_label_show=True)
+    bar.render("观众来源排行榜-柱状图.html")
 
+
+def parse_comment():
+    comments = []
+    with open(file_name, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+        try:
+            for line in lines:
+                comment = line.split(',')[2]
+                if comment:
+                    comments.append(comment)
+        except Exception as e:
+            print(e)
+    comment_after_split = jieba.cut(str(comments), cut_all=False)
+    words = ''.join(comment_after_split)
+    #多虑没用的停止词
+    stopwords = STOPWORDS.copy()
+    stopwords.add('电影')
+    stopwords.add('一部')
+    stopwords.add('一个')
+    stopwords.add('没有')
+    stopwords.add('什么')
+    stopwords.add('有点')
+    stopwords.add('感觉')
+    stopwords.add('毒液')
+    stopwords.add('就是')
+    stopwords.add('觉得')
+    bg_image = plt.imread('venmo1.jpg')
+    wc = WordCloud(width=1024, height=768, background_color='white', mask=bg_image, font_path='STKAITI.TTF',
+                   stopwords=stopwords, max_font_size=400, random_state=50)
+    wc.generate_from_text(words)
+    plt.imshow(wc)
+    plt.axis('off')
+    plt.show()
 
 
 if __name__ == '__main__':
     #获取数据
     #save()
-    cities_data = get_cities_data()
-    create_map(cities_data)
+    #获取城市分布图与top10城市柱状图
+    # cities_data = get_cities_data()
+    # create_map(cities_data)
+    #获取云词图
+    parse_comment()
 
